@@ -18,6 +18,7 @@ type extractedJob struct {
 	id       string
 	title    string
 	location string
+	salary   string
 }
 
 var baseUrl string = "https://search.incruit.com/list/search.asp?col=job&kw=python"

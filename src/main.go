@@ -25,10 +25,15 @@ var baseUrl string = "https://search.incruit.com/list/search.asp?col=job&kw=pyth
 
 func main() {
 	var jobs []extractedJob
+	mainC := make(chan []extractedJob)
 	totalPages := getPages()
 	for i := 0; i < totalPages; i++ {
-		extractedJob := getPage(i)
-		jobs = append(jobs, extractedJob...)
+		go getPage(i, mainC)
+	}
+
+	for i := 0; i < totalPages; i++ {
+		extractedJobs := <-mainC
+		jobs = append(jobs, extractedJobs...)
 	}
 
 	fmt.Println(jobs)
@@ -36,26 +41,7 @@ func main() {
 	fmt.Println("Done. Extracted: ", len(jobs))
 }
 
-func writeJobs(jobs []extractedJob) {
-	file, err := os.Create("jobs.csv") //파일생성
-	checkErr(err)
-
-	w := csv.NewWriter(file) //연필생성
-	defer w.Flush()
-
-	headers := []string{"id", "title", "location"} //헤더생성
-	wErr := w.Write(headers)
-	checkErr(wErr)
-
-	for _, job := range jobs { //각 정보마다 Write함수로 작성 후 Flush로 저장
-		jobSlice := []string{job.id, job.title, job.location}
-		jwErr := w.Write(jobSlice)
-		checkErr(jwErr)
-	}
-
-}
-
-func getPage(page int) []extractedJob {
+func getPage(page int, mainC chan<- []extractedJob) {
 	var jobs []extractedJob
 	c := make(chan extractedJob)
 	pageUrl := baseUrl + "&startno=" + strconv.Itoa(page*30)
@@ -78,7 +64,7 @@ func getPage(page int) []extractedJob {
 		jobs = append(jobs, job)
 	}
 
-	return jobs
+	mainC <- jobs
 
 }
 
@@ -120,6 +106,25 @@ func getPages() int {
 	})
 
 	return pages
+}
+
+func writeJobs(jobs []extractedJob) {
+	file, err := os.Create("jobs.csv") //파일생성
+	checkErr(err)
+
+	w := csv.NewWriter(file) //연필생성
+	defer w.Flush()
+
+	headers := []string{"id", "title", "location"} //헤더생성
+	wErr := w.Write(headers)
+	checkErr(wErr)
+
+	for _, job := range jobs { //각 정보마다 Write함수로 작성 후 Flush로 저장
+		jobSlice := []string{job.id, job.title, job.location}
+		jwErr := w.Write(jobSlice)
+		checkErr(jwErr)
+	}
+
 }
 
 func checkErr(err error) {
